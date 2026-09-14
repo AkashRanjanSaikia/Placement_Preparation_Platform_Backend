@@ -1,15 +1,6 @@
-import Problem from '../models/problems.js';
-import Template from '../models/Template.js';
-import axios from 'axios';
-import 'dotenv/config';
-
-const JUDGE0_URL = process.env.JUDGE0_URL;
-
-const languageIdToName = {
-  71: 'python',
-  63: 'javascript',
-  62: 'java',
-};
+import Problem from '../models/problem.js';
+import Template from '../models/template.js';
+import { buildSubmissions, submitBatch, buildVerdicts, languageIdToName } from '../utility/submission.js';
 
 export const runSubmission = async (req, res) => {
   try {
@@ -25,38 +16,42 @@ export const runSubmission = async (req, res) => {
       return res.status(400).json({ error: 'languageId is required' });
     }
 
-    const problem = await Problem.findOne({id : problemId});
-    const template = await Template.findOne({problem_id : problemId, language : languageIdToName[languageId]});
+    const language = languageIdToName(languageId);
+
+    if (!language) {
+      return res.status(400).json({ error: 'Unsupported languageId' });
+    }
+
+    const problem = await Problem.findOne({ id: problemId });
+    const template = await Template.findOne({ problem_id: problemId, language });
 
     if (!problem) {
       return res.status(404).json({ error: 'Problem not found' });
     }
-
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
+    }
+    if (!problem.test_cases || problem.test_cases.length === 0) {
+      return res.status(400).json({ error: 'Problem has no test cases' });
     }
 
     const fullCode = template.harness_template.replace('{{USER_CODE}}', code);
 
-    const response = await axios.post(
-      `${JUDGE0_URL}/submissions?base64_encoded=false&wait=true`,
-      {
-        source_code: fullCode,
-        language_id: languageId || 71, // Python 3
-        stdin: '2,7,11,15\n9',
-        expected_output: '0,1',
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    const submissions = buildSubmissions(fullCode, languageId, problem.test_cases);
+    const results = await submitBatch(submissions);
+    console.log(results);
+    const verdicts = buildVerdicts(results, problem.test_cases);
+    console.log(verdicts);
+    const allPassed = verdicts.every((v) => v.passed);
 
-    console.log(response.data);
-
-    res.json(response.data);
-
+    res.json({
+      problemId,
+      language,
+      allPassed,
+      totalTestCases: verdicts.length,
+      passedCount: verdicts.filter((v) => v.passed).length,
+      verdicts,
+    });
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });

@@ -1,4 +1,4 @@
-import Problem from '../models/problems.js';
+import Problem from '../models/problem.js';
 
 export const getProblems = async (req, res) => {
   try {
