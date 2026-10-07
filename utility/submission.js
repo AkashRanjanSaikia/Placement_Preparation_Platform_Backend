@@ -7,6 +7,7 @@ const languageMap = {
   python: 71,
   javascript: 63,
   java: 62,
+  cpp: 54,
 };
 
 export function languageIdToName(languageId) {
@@ -24,6 +25,15 @@ export function buildSubmissions(fullCode, languageId, testCases) {
   }));
 }
 
+export function exampleTestCasesToJudgeCases(exampleTestCases, examples = []) {
+  return exampleTestCases.map(({ input, output }, index) => ({
+    args: input,
+    expected: output,
+    hidden: false,
+    displayInput: examples[index]?.input ?? input,
+  }));
+}
+
 export async function submitBatch(submissions) {
   const submitRes = await axios.post(
     `${JUDGE0_URL}/submissions/batch?base64_encoded=false`,
@@ -37,7 +47,7 @@ export async function submitBatch(submissions) {
 }
 
 async function pollBatchResults(tokens) {
-  const maxAttempts = 10;
+  const maxAttempts = 20;
   const delayMs = 1000;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -53,7 +63,7 @@ async function pollBatchResults(tokens) {
     );
 
     const results = res.data.submissions;
-
+    // console.log(results);
     // status.id 1 = In Queue, 2 = Processing — keep polling if any are still pending
     const stillProcessing = results.some((r) => r.status.id === 1 || r.status.id === 2);
 
@@ -67,16 +77,26 @@ async function pollBatchResults(tokens) {
   throw new Error('Judge0 batch results timed out');
 }
 
+function judgeTimeToMs(time) {
+  if (time == null || time === '') return null;
+  const seconds = Number.parseFloat(time);
+  if (Number.isNaN(seconds)) return null;
+  return Math.round(seconds * 1000);
+}
+
 export function buildVerdicts(results, testCases) {
   return results.map((r, i) => ({
     testCase: i + 1,
     hidden: testCases[i].hidden,
-    stdin: testCases[i].hidden ? undefined : testCases[i].args,
+    stdin: testCases[i].hidden
+      ? undefined
+      : (testCases[i].displayInput ?? testCases[i].args),
     expected: testCases[i].hidden ? undefined : testCases[i].expected,
     stdout: r.stdout ? r.stdout.trim() : null,
     stderr: r.stderr ? r.stderr.trim() : null,
     compile_output: r.compile_output ? r.compile_output.trim() : null,
     status: r.status?.description,
+    runtimeMs: judgeTimeToMs(r.time),
     passed: r.status?.id === 3, // 3 = Accepted
   }));
 }

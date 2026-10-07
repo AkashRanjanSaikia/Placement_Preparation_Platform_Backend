@@ -10,6 +10,14 @@ const ExampleSchema = new Schema(
   { _id: false },
 );
 
+const ExampleTestCaseSchema = new Schema(
+  {
+    input: { type: String, required: true },
+    output: { type: String, required: true },
+  },
+  { _id: false },
+); 
+
 const TestCaseSchema = new Schema(
   {
     args: { type: String, required: true },      // raw stdin, ready to send as-is
@@ -19,12 +27,14 @@ const TestCaseSchema = new Schema(
   { _id: false },
 );
 
+ 
+
 const StarterCodeSchema = new Schema(
   {
     language: {
       type: String,
       required: true,
-      enum: ["python", "javascript", "java"],
+      enum: ["python", "javascript", "java", "cpp"],
     },
     code: { type: String, required: true },
   },
@@ -33,7 +43,7 @@ const StarterCodeSchema = new Schema(
 
 const ProblemSchema = new Schema(
   {
-    id: { type: String, required: true, unique: true },
+    slug: { type: String, required: true, unique: true },
     title: { type: String, required: true },
     difficulty: {
       type: String,
@@ -43,6 +53,7 @@ const ProblemSchema = new Schema(
     description: { type: String, required: true },
     constraints: [{ type: String }],
     examples: [ExampleSchema],
+    example_test_cases: [ExampleTestCaseSchema],
     test_cases: [TestCaseSchema],
     starter_code: [StarterCodeSchema],
   },

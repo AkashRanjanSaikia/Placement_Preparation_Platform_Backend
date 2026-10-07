@@ -4,7 +4,7 @@ export const getProblems = async (req, res) => {
   try {
     const problems = await Problem.find(
       {},
-      'id title difficulty' // projection: only send what the list view needs
+      'slug title difficulty' // projection: only send what the list view needs
     ).sort({ createdAt: 1 });
 
     res.status(200).json({
@@ -21,18 +21,18 @@ export const getProblems = async (req, res) => {
   }
 };
 
-export const getProblemById = async (req, res) => {
+export const getProblemBySlug = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { slug } = req.params;
 
-    const problem = await Problem.findOne({ id }).select(
+    const problem = await Problem.findOne({ slug }).select(
       '-test_cases'
     );
 
     if (!problem) {
       return res.status(404).json({
         success: false,
-        message: `Problem '${id}' not found`
+        message: `Problem '${slug}' not found`
       });
     }
 

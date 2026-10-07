@@ -1,8 +1,9 @@
 import express from 'express';
-import { runSubmission } from '../controllers/submissionController.js';
+import { submitCode, runCode } from '../controllers/submissionController.js';
 
 const router = express.Router();
 
-router.post('/', runSubmission);
+router.post('/run', runCode);
+router.post('/submit', submitCode);
 
 export default router;
