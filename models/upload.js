@@ -3,7 +3,7 @@ import Problem from './problem.js';
 import Template from './template.js'; // adjust path to your Template model
 import 'dotenv/config';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://arsaikia26_db_user:XnwTX8xRwz1nEmgD@cluster0.mkroqtq.mongodb.net/placement?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI ;
 
 // Seed data matching the new Problem schema.
 // example_test_cases: raw stdin (input) and raw expected output (output), used by Run.
