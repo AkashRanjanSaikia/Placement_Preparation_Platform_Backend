@@ -1,0 +1,363 @@
+[
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-percentages",
+    "difficulty": "easy",
+    "questionText": "If 20% of a number is 48, what is the number?",
+    "questionType": "single",
+    "options": [
+      "192",
+      "240",
+      "96",
+      "120"
+    ],
+    "correctAnswers": [
+      1
+    ],
+    "explanation": "Let the number be x. 0.2x = 48, so x = 48 / 0.2 = 240.",
+    "tags": [
+      "percentages"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-percentages",
+    "difficulty": "easy",
+    "questionText": "A shopkeeper buys an article for ₹400 and sells it at a profit of 25%. What is the selling price?",
+    "questionType": "single",
+    "options": [
+      "₹450",
+      "₹500",
+      "₹525",
+      "₹480"
+    ],
+    "correctAnswers": [
+      1
+    ],
+    "explanation": "Profit = 25% of 400 = 100. Selling price = 400 + 100 = ₹500.",
+    "tags": [
+      "profit"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-percentages",
+    "difficulty": "medium",
+    "questionText": "The price of an item is reduced by 10% and then increased by 10%. Compared to the original price, the net change is:",
+    "questionType": "single",
+    "options": [
+      "No change",
+      "1% increase",
+      "1% decrease",
+      "2% decrease"
+    ],
+    "correctAnswers": [
+      2
+    ],
+    "explanation": "After −10% then +10% on the reduced price, net factor is 0.9 × 1.1 = 0.99, i.e. 1% decrease.",
+    "tags": [
+      "percentages",
+      "successive-change"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-percentages",
+    "difficulty": "easy",
+    "questionText": "If the cost price is ₹800 and loss is 12.5%, what is the selling price?",
+    "questionType": "single",
+    "options": [
+      "₹700",
+      "₹720",
+      "₹680",
+      "₹750"
+    ],
+    "correctAnswers": [
+      0
+    ],
+    "explanation": "Loss = 12.5% of 800 = 100. Selling price = 800 − 100 = ₹700.",
+    "tags": [
+      "loss"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-ratios",
+    "difficulty": "easy",
+    "questionText": "The ratio of two numbers is 3 : 5. If their sum is 64, what is the larger number?",
+    "questionType": "single",
+    "options": [
+      "24",
+      "40",
+      "36",
+      "28"
+    ],
+    "correctAnswers": [
+      1
+    ],
+    "explanation": "Parts are 3k and 5k. 8k = 64 → k = 8. Larger number = 5 × 8 = 40.",
+    "tags": [
+      "ratios"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-ratios",
+    "difficulty": "medium",
+    "questionText": "Milk and water are mixed in the ratio 4 : 1. How much water must be added to 20 L of this mixture to make the ratio 4 : 3?",
+    "questionType": "single",
+    "options": [
+      "4 L",
+      "6 L",
+      "8 L",
+      "10 L"
+    ],
+    "correctAnswers": [
+      2
+    ],
+    "explanation": "In 20 L, milk = 16 L and water = 4 L. For ratio 4:3 with 16 L milk, water needed = 12 L. Extra water = 12 − 4 = 8 L.",
+    "tags": [
+      "ratios",
+      "mixtures"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-ratios",
+    "difficulty": "easy",
+    "questionText": "If a : b = 2 : 3 and b : c = 4 : 5, then a : c is:",
+    "questionType": "single",
+    "options": [
+      "8 : 15",
+      "2 : 5",
+      "3 : 5",
+      "4 : 15"
+    ],
+    "correctAnswers": [
+      0
+    ],
+    "explanation": "a : b = 8 : 12 and b : c = 12 : 15, so a : c = 8 : 15.",
+    "tags": [
+      "ratios"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-time-work",
+    "difficulty": "medium",
+    "questionText": "A can complete a work in 10 days and B can complete it in 15 days. Working together, in how many days will they finish the work?",
+    "questionType": "single",
+    "options": [
+      "5 days",
+      "6 days",
+      "7.5 days",
+      "8 days"
+    ],
+    "correctAnswers": [
+      1
+    ],
+    "explanation": "A's rate = 1/10, B's rate = 1/15. Combined = 1/10 + 1/15 = 5/30 = 1/6 per day, so 6 days.",
+    "tags": [
+      "time",
+      "work"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-time-work",
+    "difficulty": "easy",
+    "questionText": "A train travels at 72 km/h. What is its speed in m/s?",
+    "questionType": "single",
+    "options": [
+      "15 m/s",
+      "18 m/s",
+      "20 m/s",
+      "25 m/s"
+    ],
+    "correctAnswers": [
+      2
+    ],
+    "explanation": "To convert km/h to m/s, multiply by 5/18. 72 × 5/18 = 20 m/s.",
+    "tags": [
+      "speed",
+      "unit-conversion"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-di",
+    "difficulty": "medium",
+    "questionText": "A company's yearly sales (in ₹ lakhs) were: 2021 – 40, 2022 – 50, 2023 – 60. What is the percentage increase in sales from 2021 to 2023?",
+    "questionType": "single",
+    "options": [
+      "33.3%",
+      "50%",
+      "60%",
+      "20%"
+    ],
+    "correctAnswers": [
+      1
+    ],
+    "explanation": "Increase = 60 − 40 = 20. Percentage increase = (20 / 40) × 100 = 50%.",
+    "tags": [
+      "tables",
+      "percentage-change"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-numbers",
+    "difficulty": "easy",
+    "questionText": "What is the LCM of 12, 15 and 20?",
+    "questionType": "single",
+    "options": [
+      "60",
+      "120",
+      "30",
+      "180"
+    ],
+    "correctAnswers": [
+      0
+    ],
+    "explanation": "12 = 2² × 3, 15 = 3 × 5, 20 = 2² × 5. LCM = 2² × 3 × 5 = 60.",
+    "tags": [
+      "lcm"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "quantitative",
+    "topic": "gen-numbers",
+    "difficulty": "medium",
+    "questionText": "What is the HCF of 36 and 84?",
+    "questionType": "single",
+    "options": [
+      "6",
+      "12",
+      "18",
+      "24"
+    ],
+    "correctAnswers": [
+      1
+    ],
+    "explanation": "36 = 2² × 3², 84 = 2² × 3 × 7. Common factors: 2² × 3 = 12.",
+    "tags": [
+      "hcf"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "verbal",
+    "topic": "ver-vocab",
+    "difficulty": "easy",
+    "questionText": "Choose the word closest in meaning to BRIEF.",
+    "questionType": "single",
+    "options": [
+      "Lengthy",
+      "Short",
+      "Complex",
+      "Silent"
+    ],
+    "correctAnswers": [
+      1
+    ],
+    "explanation": "Brief means short in duration or length.",
+    "tags": [
+      "vocabulary",
+      "synonyms"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "verbal",
+    "topic": "ver-vocab",
+    "difficulty": "easy",
+    "questionText": "Choose the antonym of ABUNDANT.",
+    "questionType": "single",
+    "options": [
+      "Plentiful",
+      "Scarce",
+      "Ample",
+      "Copious"
+    ],
+    "correctAnswers": [
+      1
+    ],
+    "explanation": "Abundant means plentiful; scarce is the opposite.",
+    "tags": [
+      "vocabulary",
+      "antonyms"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "verbal",
+    "topic": "ver-vocab",
+    "difficulty": "easy",
+    "questionText": "Choose the word closest in meaning to DILIGENT.",
+    "questionType": "single",
+    "options": [
+      "Careless",
+      "Hardworking",
+      "Lazy",
+      "Random"
+    ],
+    "correctAnswers": [
+      1
+    ],
+    "explanation": "Diligent means showing care and effort in work.",
+    "tags": [
+      "vocabulary",
+      "synonyms"
+    ],
+    "companies": []
+  },
+  {
+    "category": "aptitude",
+    "subject": "verbal",
+    "topic": "ver-vocab",
+    "difficulty": "easy",
+    "questionText": "Choose the antonym of TRANSPARENT.",
+    "questionType": "single",
+    "options": [
+      "Clear",
+      "Obvious",
+      "Opaque",
+      "Open"
+    ],
+    "correctAnswers": [
+      2
+    ],
+    "explanation": "Transparent means see-through or clear; opaque is the opposite.",
+    "tags": [
+      "vocabulary",
+      "antonyms"
+    ],
+    "companies": []
+  }
+]
