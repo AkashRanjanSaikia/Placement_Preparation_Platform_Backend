@@ -6,6 +6,7 @@ import errorHandler from './middleware/errorHandler.js';
 import problemRouter from './routes/problem.js';
 import submissionRouter from './routes/submission.js';
 import questionRouter from './routes/question.js';
+import authRouter from './routes/auth.js';
 
 const PORT = process.env.PORT || 5000;
 const app = express();
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use("/problem", problemRouter);
 app.use("/submission",submissionRouter);
 app.use("/question", questionRouter);
+app.use("/auth", authRouter);
 
 //  path not present
 app.use((req, res) => {

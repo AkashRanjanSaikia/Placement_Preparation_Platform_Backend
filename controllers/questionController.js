@@ -23,18 +23,30 @@ export const getQuestionCatalog = async (req, res) => {
       });
     }
 
-    const grouped = await Question.aggregate([
-      { $match: { category } },
-      {
-        $group: {
-          _id: { subject: "$subject", topic: "$topic" },
-          count: { $sum: 1 },
+    const [grouped, byDifficulty] = await Promise.all([
+      Question.aggregate([
+        { $match: { category } },
+        {
+          $group: {
+            _id: { subject: "$subject", topic: "$topic" },
+            count: { $sum: 1 },
+          },
         },
-      },
+      ]),
+      Question.aggregate([
+        { $match: { category } },
+        {
+          $group: {
+            _id: { topic: "$topic", difficulty: "$difficulty" },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
     ]);
 
     const topicCounts = {};
     const subjects = {};
+    const topicDifficultyCounts = {};
 
     for (const row of grouped) {
       const subject = row._id.subject;
@@ -50,10 +62,24 @@ export const getQuestionCatalog = async (req, res) => {
       }
     }
 
+    for (const row of byDifficulty) {
+      const topic = row._id.topic;
+      const difficulty = row._id.difficulty;
+      if (!topic || !difficulty) continue;
+
+      if (!topicDifficultyCounts[topic]) {
+        topicDifficultyCounts[topic] = { easy: 0, medium: 0, hard: 0 };
+      }
+      if (topicDifficultyCounts[topic][difficulty] !== undefined) {
+        topicDifficultyCounts[topic][difficulty] = row.count;
+      }
+    }
+
     res.status(200).json({
       success: true,
       category,
       topicCounts,
+      topicDifficultyCounts,
       subjects,
     });
   } catch (err) {
@@ -95,9 +121,14 @@ export const getQuestions = async (req, res) => {
       subject,
     };
 
-    const { topic } = req.query;
-    if (topic) {
+    const { topic, difficulty } = req.query;
+    if (topic && topic !== "all-topics") {
       filter.topic = topic;
+    }
+
+    const normalizedDifficulty = String(difficulty ?? "").toLowerCase();
+    if (["easy", "medium", "hard"].includes(normalizedDifficulty)) {
+      filter.difficulty = normalizedDifficulty;
     }
 
     const [questions, total] = await Promise.all([
