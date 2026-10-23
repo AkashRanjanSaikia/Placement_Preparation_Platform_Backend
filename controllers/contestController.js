@@ -3,6 +3,7 @@ import Contest from "../models/contest.js";
 import ContestRegistration from "../models/contestRegistration.js";
 import ContestSubmission from "../models/contestSubmission.js";
 import {
+  contestClosedReason,
   getRuntimeStatus,
   serverTimePayload,
 } from "../utility/contestStatus.js";
@@ -20,6 +21,7 @@ import { findContestQuestion } from "../services/contestSnapshotService.js";
 import { runCodeOnExampleCases } from "../services/codeRunService.js";
 import { consumeRateLimit } from "../utility/rateLimit.js";
 import { buildOrderedResultRows } from "../services/contestResultsService.js";
+import { isContestDeleted } from "../services/contestHostLifecycleService.js";
 
 function toObjectId(id) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -38,9 +40,7 @@ function publicContestSummary(contest, extras = {}, viewerUserId = null) {
   }));
 
   const visibility = contest.visibility ?? "public";
-  const hostId = contest.createdBy?._id
-    ? contest.createdBy._id.toString()
-    : contest.createdBy?.toString?.() ?? null;
+  const hostId = contestHostId(contest);
 
   return {
     id: contest._id.toString(),
@@ -59,6 +59,8 @@ function publicContestSummary(contest, extras = {}, viewerUserId = null) {
     publishedAt: contest.publishedAt,
     sections,
     status: getRuntimeStatus(contest),
+    hostStoppedAt: contest.hostStoppedAt ?? null,
+    closedReason: contestClosedReason(contest),
     ...extras,
   };
 }
@@ -76,24 +78,90 @@ async function isUserRegistered(contestId, userId) {
   return Boolean(existing);
 }
 
+function contestHostId(contest) {
+  return contest.createdBy?._id
+    ? contest.createdBy._id.toString()
+    : contest.createdBy?.toString?.() ?? null;
+}
+
+function contestIsHost(contest, userId) {
+  if (!userId) return false;
+  const hostId = contestHostId(contest);
+  return Boolean(hostId && hostId === userId);
+}
+
+function registrationViewerFlags(registration, contestStatus) {
+  if (!registration) {
+    return {
+      registered: false,
+      examFinalized: false,
+      roomLocked: false,
+      canEnterRoom: false,
+    };
+  }
+  const examFinalized = Boolean(registration.examFinalizedAt);
+  const roomLocked = Boolean(
+    registration.roomLockedAt || registration.examFinalizedAt,
+  );
+  const canEnterRoom = contestStatus === "live" && !roomLocked;
+  return {
+    registered: true,
+    examFinalized,
+    roomLocked,
+    canEnterRoom,
+  };
+}
+
+/** Hosts may open the room before start and during the contest; not subject to participant lock-out. */
+function applyHostRoomAccess(regFlags, contest, contestStatus, userId) {
+  if (isContestDeleted(contest) || contest.hostStoppedAt) {
+    return { ...regFlags, canEnterRoom: false };
+  }
+  if (!contestIsHost(contest, userId)) {
+    return regFlags;
+  }
+  if (contestStatus === "completed") {
+    return { ...regFlags, canEnterRoom: false };
+  }
+  return {
+    ...regFlags,
+    canEnterRoom: true,
+    roomLocked: false,
+  };
+}
+
+function canRegisterForContest(contest, now, alreadyRegistered) {
+  if (alreadyRegistered) return false;
+  if (isContestDeleted(contest) || contest.hostStoppedAt) return false;
+  if (now > new Date(contest.endTime)) return false;
+  if (now >= new Date(contest.startTime)) return false;
+  return true;
+}
+
+function publishedVisibleFilter(extra = {}) {
+  return { published: true, deletedAt: null, ...extra };
+}
+
 function buildStatusFilter(status, now) {
   if (!status) {
-    return { published: true };
+    return publishedVisibleFilter();
   }
 
   const normalized = String(status).toLowerCase();
   if (normalized === "upcoming") {
-    return { published: true, startTime: { $gt: now } };
+    return publishedVisibleFilter({ startTime: { $gt: now } });
   }
   if (normalized === "live") {
-    return {
-      published: true,
+    return publishedVisibleFilter({
       startTime: { $lte: now },
       endTime: { $gte: now },
-    };
+      hostStoppedAt: null,
+    });
   }
   if (normalized === "completed") {
-    return { published: true, endTime: { $lt: now } };
+    return publishedVisibleFilter({
+      $or: [{ endTime: { $lt: now } }, { hostStoppedAt: { $ne: null } }],
+    });
   }
 
   return null;
@@ -112,7 +180,7 @@ export const listContests = async (req, res, next) => {
 
     const contests = await Contest.find(filter)
       .populate("createdBy", "name")
-      .sort({ startTime: 1 });
+      .sort({ startTime: -1 });
     const contestIds = contests.map((contest) => contest._id);
 
     const registrationCounts = await ContestRegistration.aggregate([
@@ -123,29 +191,42 @@ export const listContests = async (req, res, next) => {
       registrationCounts.map((row) => [row._id.toString(), row.count]),
     );
 
-    let registeredSet = new Set();
+    const registrationByContest = new Map();
     if (req.user?.id && contestIds.length) {
       const registrations = await ContestRegistration.find({
         contestId: { $in: contestIds },
         userId: req.user.id,
-      }).select("contestId");
-      registeredSet = new Set(
-        registrations.map((row) => row.contestId.toString()),
-      );
+      }).select("contestId examFinalizedAt roomLockedAt roomEnteredAt");
+      for (const row of registrations) {
+        registrationByContest.set(row.contestId.toString(), row);
+      }
     }
 
     res.status(200).json({
       success: true,
-      data: contests.map((contest) =>
-        publicContestSummary(
+      data: contests.map((contest) => {
+        const reg = registrationByContest.get(contest._id.toString());
+        const status = getRuntimeStatus(contest);
+        const regFlags = applyHostRoomAccess(
+          registrationViewerFlags(reg, status),
+          contest,
+          status,
+          req.user?.id,
+        );
+        return publicContestSummary(
           contest,
           {
             participantCount: countByContest.get(contest._id.toString()) ?? 0,
-            registered: registeredSet.has(contest._id.toString()),
+            ...regFlags,
+            canRegister: canRegisterForContest(
+              contest,
+              now,
+              regFlags.registered,
+            ),
           },
           req.user?.id,
-        ),
-      ),
+        );
+      }),
       ...serverTimePayload(now),
     });
   } catch (err) {
@@ -159,19 +240,28 @@ export const getContestById = async (req, res, next) => {
       "createdBy",
       "name",
     );
-    if (!contest || !contest.published) {
+    if (!contest || !contest.published || isContestDeleted(contest)) {
       return res.status(404).json({
         success: false,
         message: "Contest not found",
       });
     }
 
-    const registered = await isUserRegistered(contest._id, req.user?.id);
-    const participantCount = await getParticipantCount(contest._id);
     const status = getRuntimeStatus(contest);
+    const registration = req.user?.id
+      ? await getRegistrationRecord(contest._id, req.user.id)
+      : null;
+    const regFlags = applyHostRoomAccess(
+      registrationViewerFlags(registration, status),
+      contest,
+      status,
+      req.user?.id,
+    );
+    const participantCount = await getParticipantCount(contest._id);
+    const now = new Date();
 
     let rankExtras = {};
-    if (req.user?.id && registered && status === "completed") {
+    if (req.user?.id && regFlags.registered && status === "completed") {
       await gradeAllPendingForContest(contest._id);
       const leaderboard = await buildLeaderboard(
         contest._id,
@@ -192,7 +282,12 @@ export const getContestById = async (req, res, next) => {
         contest,
         {
           participantCount,
-          registered,
+          ...regFlags,
+          canRegister: canRegisterForContest(
+            contest,
+            now,
+            regFlags.registered,
+          ),
           ...rankExtras,
         },
         req.user?.id,
@@ -215,10 +310,17 @@ export const registerForContest = async (req, res, next) => {
     }
 
     const contest = await Contest.findById(contestId).select("+joinCodeHash");
-    if (!contest || !contest.published) {
+    if (!contest || !contest.published || isContestDeleted(contest)) {
       return res.status(404).json({
         success: false,
         message: "Contest not found",
+      });
+    }
+
+    if (contest.hostStoppedAt) {
+      return res.status(400).json({
+        success: false,
+        message: "This contest was ended by the host",
       });
     }
 
@@ -227,6 +329,12 @@ export const registerForContest = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: "Registration is closed for this contest",
+      });
+    }
+    if (now >= new Date(contest.startTime)) {
+      return res.status(400).json({
+        success: false,
+        message: "Registration closes when the contest starts",
       });
     }
 
@@ -304,11 +412,43 @@ export const getContestAttempt = async (req, res, next) => {
       });
     }
 
+    if (isContestDeleted(contest)) {
+      return res.status(410).json({
+        success: false,
+        code: "CONTEST_REMOVED",
+        message: "This contest was removed by the host",
+      });
+    }
+
     const status = getRuntimeStatus(contest);
-    if (status !== "live") {
+    const isHost = contestIsHost(contest, req.user.id);
+
+    if (contest.hostStoppedAt && !isHost) {
+      return res.status(403).json({
+        success: false,
+        code: "CONTEST_STOPPED",
+        message: "The host ended this contest",
+      });
+    }
+
+    if (status === "completed") {
+      return res.status(403).json({
+        success: false,
+        message: "This contest has ended",
+      });
+    }
+
+    if (!isHost && status !== "live") {
       return res.status(403).json({
         success: false,
         message: "Contest attempt is only available while the contest is live",
+      });
+    }
+
+    if (isHost && status !== "live" && status !== "upcoming") {
+      return res.status(403).json({
+        success: false,
+        message: "Contest room is not available",
       });
     }
 
@@ -316,11 +456,27 @@ export const getContestAttempt = async (req, res, next) => {
       contest._id,
       req.user.id,
     );
-    if (!registration) {
-      return res.status(403).json({
-        success: false,
-        message: "Register for the contest before attempting",
-      });
+
+    if (!isHost) {
+      if (!registration) {
+        return res.status(403).json({
+          success: false,
+          message: "Register for the contest before attempting",
+        });
+      }
+
+      if (registration.roomLockedAt || registration.examFinalizedAt) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "You have already submitted or left this contest — you cannot re-enter the room",
+        });
+      }
+
+      if (!registration.roomEnteredAt) {
+        registration.roomEnteredAt = new Date();
+        await registration.save();
+      }
     }
 
     const sections = (contest.sections ?? []).map((section) => ({
@@ -342,10 +498,99 @@ export const getContestAttempt = async (req, res, next) => {
         title: contest.title,
         endTime: contest.endTime,
         status,
-        examFinalized: Boolean(registration.examFinalizedAt),
-        examFinalizedAt: registration.examFinalizedAt,
+        examFinalized: Boolean(registration?.examFinalizedAt),
+        examFinalizedAt: registration?.examFinalizedAt ?? null,
+        isHostPreview: isHost,
+        closedReason: contestClosedReason(contest),
         sections,
       },
+      ...serverTimePayload(),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getContestLiveState = async (req, res, next) => {
+  try {
+    const contest = await Contest.findById(req.params.id).select(
+      "published startTime endTime hostStoppedAt deletedAt",
+    );
+    if (!contest || !contest.published) {
+      return res.status(404).json({
+        success: false,
+        message: "Contest not found",
+      });
+    }
+
+    if (isContestDeleted(contest)) {
+      return res.status(410).json({
+        success: false,
+        code: "CONTEST_REMOVED",
+        message: "This contest was removed by the host",
+      });
+    }
+
+    const status = getRuntimeStatus(contest);
+    res.status(200).json({
+      success: true,
+      data: {
+        status,
+        endTime: contest.endTime,
+        hostStoppedAt: contest.hostStoppedAt,
+        closedReason: contestClosedReason(contest),
+      },
+      ...serverTimePayload(),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const lockContestRoom = async (req, res, next) => {
+  try {
+    const contest = await Contest.findById(req.params.id);
+    if (!contest || !contest.published) {
+      return res.status(404).json({
+        success: false,
+        message: "Contest not found",
+      });
+    }
+
+    if (contestIsHost(contest, req.user.id)) {
+      return res.status(200).json({
+        success: true,
+        data: { roomLocked: false },
+        ...serverTimePayload(),
+      });
+    }
+
+    const registration = await getRegistrationRecord(
+      contest._id,
+      req.user.id,
+    );
+    if (!registration) {
+      return res.status(403).json({
+        success: false,
+        message: "Register for the contest first",
+      });
+    }
+
+    if (!registration.roomEnteredAt || registration.examFinalizedAt) {
+      return res.status(200).json({
+        success: true,
+        data: { roomLocked: Boolean(registration.roomLockedAt) },
+      });
+    }
+
+    if (!registration.roomLockedAt) {
+      registration.roomLockedAt = new Date();
+      await registration.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { roomLocked: true },
       ...serverTimePayload(),
     });
   } catch (err) {
@@ -582,10 +827,20 @@ export const getMyContestSubmissions = async (req, res, next) => {
       contest._id,
       req.user.id,
     );
-    if (!registration) {
+    const isHost = contestIsHost(contest, req.user.id);
+
+    if (!registration && !isHost) {
       return res.status(403).json({
         success: false,
         message: "Register for the contest to view submissions",
+      });
+    }
+
+    if (!registration && isHost) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        ...serverTimePayload(),
       });
     }
 

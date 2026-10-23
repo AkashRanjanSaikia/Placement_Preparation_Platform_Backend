@@ -10,12 +10,21 @@ export async function getRegistrationRecord(contestId, userId) {
 }
 
 export async function assertCanEditAnswers(contest, registration) {
+  if (contest?.deletedAt) {
+    throw new Error("This contest was removed by the host");
+  }
+  if (contest?.hostStoppedAt) {
+    throw new Error("The host ended this contest");
+  }
   const status = getRuntimeStatus(contest);
   if (status !== "live") {
     throw new Error("Answers can only be changed while the contest is live");
   }
   if (registration?.examFinalizedAt) {
     throw new Error("Your answers are already submitted for this contest");
+  }
+  if (registration?.roomLockedAt) {
+    throw new Error("Your contest attempt is closed — you cannot re-enter the room");
   }
 }
 
@@ -158,8 +167,9 @@ export async function gradeAllPendingForContest(contestId) {
 export async function finalizeUserExam(contest, userId) {
   await gradeAllAnswersForUser(contest._id, userId);
 
+  const now = new Date();
   await ContestRegistration.findOneAndUpdate(
     { contestId: contest._id, userId },
-    { examFinalizedAt: new Date() },
+    { examFinalizedAt: now, roomLockedAt: now },
   );
 }

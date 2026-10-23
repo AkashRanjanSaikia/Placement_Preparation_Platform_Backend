@@ -68,7 +68,11 @@ export async function createContestDraft({
     throw new Error("visibility must be public or private");
   }
 
-  const timeError = validateContestTimes(body?.startTime, body?.endTime);
+  const timeError = validateContestTimes(
+    body?.startTime,
+    body?.endTime,
+    body?.scheduleTimezoneOffset,
+  );
   if (timeError) {
     throw new Error(timeError);
   }
@@ -122,7 +126,11 @@ export async function updateContestDraft({ contest, body }) {
 
   const startTime = body?.startTime ?? contest.startTime;
   const endTime = body?.endTime ?? contest.endTime;
-  const timeError = validateContestTimes(startTime, endTime);
+  const timeError = validateContestTimes(
+    startTime,
+    endTime,
+    body?.scheduleTimezoneOffset,
+  );
   if (timeError) {
     throw new Error(timeError);
   }

@@ -4,6 +4,7 @@ import { rateLimitMiddleware } from "../utility/rateLimit.js";
 import {
   getContestAttempt,
   getContestById,
+  getContestLiveState,
   getContestLeaderboard,
   getMyContestSubmissions,
   listContests,
@@ -11,12 +12,14 @@ import {
   runContestDsaCode,
   saveContestAnswer,
   finalizeContestExam,
+  lockContestRoom,
 } from "../controllers/contestController.js";
 import {
   hostBrowseLibrary,
   hostCreateContest,
-  hostDeleteDraft,
+  hostDeleteContest,
   hostGetContest,
+  hostStopContest,
   hostListMyContests,
   hostPublishContest,
   hostRegenerateJoinCode,
@@ -54,17 +57,20 @@ router.get("/", optionalAuth, listContests);
 router.get("/host/library", requireAuth, hostBrowseLibrary);
 router.get("/host/mine", requireAuth, hostListMyContests);
 router.get("/host/:id", requireAuth, hostGetContest);
-router.delete("/host/:id", requireAuth, hostDeleteDraft);
+router.delete("/host/:id", requireAuth, hostDeleteContest);
+router.post("/host/:id/stop", requireAuth, hostStopContest);
 router.post("/host", requireAuth, hostCreateContest);
 router.put("/host/:id", requireAuth, hostUpdateContest);
 router.post("/host/:id/publish", requireAuth, hostPublishContest);
 router.post("/host/:id/regenerate-join-code", requireAuth, hostRegenerateJoinCode);
 
+router.get("/:id/live-state", requireAuth, getContestLiveState);
 router.get("/:id", optionalAuth, getContestById);
 router.get("/:id/leaderboard", optionalAuth, getContestLeaderboard);
 
 router.post("/:id/register", requireAuth, registerForContest);
 router.get("/:id/attempt", requireAuth, getContestAttempt);
+router.post("/:id/room/leave", requireAuth, lockContestRoom);
 router.get("/:id/my-submissions", requireAuth, getMyContestSubmissions);
 router.post("/:id/run", requireAuth, runCodeRateLimit, runContestDsaCode);
 router.put("/:id/answers", requireAuth, saveAnswerRateLimit, saveContestAnswer);

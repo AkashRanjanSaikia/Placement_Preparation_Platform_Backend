@@ -5,6 +5,10 @@ export function getRuntimeStatus(contest, now = new Date()) {
     return "draft";
   }
 
+  if (contest.deletedAt || contest.hostStoppedAt) {
+    return "completed";
+  }
+
   const start = new Date(contest.startTime);
   const end = new Date(contest.endTime);
 
@@ -13,11 +17,41 @@ export function getRuntimeStatus(contest, now = new Date()) {
   return "completed";
 }
 
+export function contestClosedReason(contest) {
+  if (contest?.deletedAt) return "deleted";
+  if (contest?.hostStoppedAt) return "stopped";
+  return null;
+}
+
 export function isContestDraftEditable(contest) {
   return contest && !contest.published;
 }
 
-export function validateContestTimes(startTime, endTime) {
+function calendarDayKey(date, timezoneOffsetMinutes) {
+  const shifted = date.getTime() - timezoneOffsetMinutes * 60_000;
+  const parts = new Date(shifted);
+  return `${parts.getUTCFullYear()}-${parts.getUTCMonth()}-${parts.getUTCDate()}`;
+}
+
+function contestOnSameCalendarDay(start, end, timezoneOffsetMinutes) {
+  if (timezoneOffsetMinutes != null && Number.isFinite(timezoneOffsetMinutes)) {
+    return (
+      calendarDayKey(start, timezoneOffsetMinutes) ===
+      calendarDayKey(end, timezoneOffsetMinutes)
+    );
+  }
+  return (
+    start.getUTCFullYear() === end.getUTCFullYear() &&
+    start.getUTCMonth() === end.getUTCMonth() &&
+    start.getUTCDate() === end.getUTCDate()
+  );
+}
+
+export function validateContestTimes(
+  startTime,
+  endTime,
+  timezoneOffsetMinutes = null,
+) {
   const start = new Date(startTime);
   const end = new Date(endTime);
 
@@ -27,6 +61,10 @@ export function validateContestTimes(startTime, endTime) {
 
   if (end <= start) {
     return "endTime must be after startTime";
+  }
+
+  if (!contestOnSameCalendarDay(start, end, timezoneOffsetMinutes)) {
+    return "Contest must start and end on the same calendar day";
   }
 
   return null;

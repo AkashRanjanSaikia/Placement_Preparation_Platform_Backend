@@ -18,6 +18,10 @@ import {
   getRuntimeStatus,
   serverTimePayload,
 } from "../utility/contestStatus.js";
+import {
+  deleteContestByHost,
+  stopContestByHost,
+} from "../services/contestHostLifecycleService.js";
 
 const MAX_DRAFTS_PER_USER = 20;
 
@@ -28,7 +32,13 @@ function handleServiceError(err, res, next) {
       err.message.includes("must") ||
       err.message.includes("Only") ||
       err.message.includes("already") ||
-      err.message.includes("visibility"))
+      err.message.includes("visibility") ||
+      err.message.includes("confirm") ||
+      err.message.includes("Confirmation") ||
+      err.message.includes("deleted") ||
+      err.message.includes("stopped") ||
+      err.message.includes("ended") ||
+      err.message.includes("removed"))
   ) {
     return res.status(400).json({ success: false, message: err.message });
   }
@@ -238,6 +248,8 @@ export const hostGetContest = async (req, res, next) => {
         sectionCount: contest.sections?.length ?? 0,
         questionCount: countQuestionsInSections(contest.sections),
         canEdit: isContestDraftEditable(contest),
+        hostStoppedAt: contest.hostStoppedAt,
+        deletedAt: contest.deletedAt,
         editableSections,
       },
       ...serverTimePayload(),
@@ -247,7 +259,41 @@ export const hostGetContest = async (req, res, next) => {
   }
 };
 
-export const hostDeleteDraft = async (req, res, next) => {
+export const hostStopContest = async (req, res, next) => {
+  try {
+    const contest = await Contest.findById(req.params.id);
+    if (!contest) {
+      return res.status(404).json({
+        success: false,
+        message: "Contest not found",
+      });
+    }
+    if (!assertContestOwner(contest, req.user.id)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the host can stop this contest",
+      });
+    }
+
+    const updated = await stopContestByHost(contest);
+    res.status(200).json({
+      success: true,
+      message:
+        "Contest stopped. Participants in the room will be closed out safely.",
+      data: {
+        id: updated._id.toString(),
+        status: getRuntimeStatus(updated),
+        hostStoppedAt: updated.hostStoppedAt,
+        endTime: updated.endTime,
+      },
+      ...serverTimePayload(),
+    });
+  } catch (err) {
+    handleServiceError(err, res, next);
+  }
+};
+
+export const hostDeleteContest = async (req, res, next) => {
   try {
     const contest = await Contest.findById(req.params.id);
     if (!contest) {
@@ -262,21 +308,21 @@ export const hostDeleteDraft = async (req, res, next) => {
         message: "You can only delete contests you created",
       });
     }
-    if (!isContestDraftEditable(contest)) {
-      return res.status(400).json({
-        success: false,
-        message: "Only unpublished drafts can be deleted",
-      });
-    }
 
-    await Contest.deleteOne({ _id: contest._id });
+    const result = await deleteContestByHost(
+      contest,
+      req.body?.confirmTitle,
+    );
 
     res.status(200).json({
       success: true,
-      message: "Draft deleted",
+      message:
+        result.mode === "hard"
+          ? "Draft deleted"
+          : "Contest removed. It no longer appears to students.",
     });
   } catch (err) {
-    next(err);
+    handleServiceError(err, res, next);
   }
 };
 

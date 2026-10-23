@@ -21,6 +21,8 @@ const ContestRegistrationSchema = new Schema(
       default: Date.now,
     },
     examFinalizedAt: { type: Date, default: null },
+    roomEnteredAt: { type: Date, default: null },
+    roomLockedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

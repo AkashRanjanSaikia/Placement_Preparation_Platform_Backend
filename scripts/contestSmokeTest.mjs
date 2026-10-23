@@ -4,8 +4,12 @@
  */
 import "dotenv/config";
 import mongoose from "mongoose";
-import connectDB from "../config/db.js";
 import Contest from "../models/contest.js";
+
+async function ensureMongo() {
+  if (mongoose.connection.readyState === 1) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+}
 
 const BASE = `http://127.0.0.1:${process.env.PORT || 5000}`;
 const PASS = "testpass12345";
@@ -109,8 +113,21 @@ async function main() {
   pass("Aptitude library has items");
 
   const now = Date.now();
-  const startLive = new Date(now - 60_000).toISOString();
-  const endLive = new Date(now + 2 * 60 * 60_000).toISOString();
+  const startLiveDate = new Date(now + 5 * 60_000);
+  let endLiveDate = new Date(now + 2 * 60 * 60_000);
+  if (
+    startLiveDate.getUTCFullYear() !== endLiveDate.getUTCFullYear() ||
+    startLiveDate.getUTCMonth() !== endLiveDate.getUTCMonth() ||
+    startLiveDate.getUTCDate() !== endLiveDate.getUTCDate()
+  ) {
+    endLiveDate = new Date(startLiveDate);
+    endLiveDate.setUTCHours(23, 59, 59, 999);
+  }
+  if (endLiveDate <= startLiveDate) {
+    endLiveDate = new Date(startLiveDate.getTime() + 30 * 60_000);
+  }
+  const startLive = startLiveDate.toISOString();
+  const endLive = endLiveDate.toISOString();
 
   const createBody = {
     title: `Smoke contest ${now}`,
@@ -192,6 +209,12 @@ async function main() {
   }
   pass("Student registered with join code");
 
+  await ensureMongo();
+  await Contest.findByIdAndUpdate(contestId, {
+    startTime: new Date(Date.now() - 60_000),
+  });
+  pass("Contest startTime moved to past (DB) for live attempt");
+
   const attempt = await req("GET", `/contest/${contestId}/attempt`, {
     token: student.token,
   });
@@ -265,7 +288,7 @@ async function main() {
     pass("Finalize exam");
   }
 
-  await connectDB();
+  await ensureMongo();
   await Contest.findByIdAndUpdate(contestId, {
     endTime: new Date(Date.now() - 60_000),
     startTime: new Date(Date.now() - 3 * 60 * 60_000),

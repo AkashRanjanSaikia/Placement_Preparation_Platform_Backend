@@ -61,6 +61,8 @@ const ContestSchema = new Schema(
     },
     published: { type: Boolean, default: false, index: true },
     publishedAt: { type: Date },
+    hostStoppedAt: { type: Date, default: null, index: true },
+    deletedAt: { type: Date, default: null, index: true },
     sections: { type: [ContestSectionSchema], default: [] },
   },
   { timestamps: true },
