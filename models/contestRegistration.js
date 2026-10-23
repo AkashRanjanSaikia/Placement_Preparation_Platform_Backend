@@ -20,6 +20,7 @@ const ContestRegistrationSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+    examFinalizedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

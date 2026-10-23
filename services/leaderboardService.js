@@ -10,7 +10,12 @@ export async function buildLeaderboard(contestId, contestStartTime) {
       : new mongoose.Types.ObjectId(contestId);
 
   const grouped = await ContestSubmission.aggregate([
-    { $match: { contestId: contestObjectId } },
+    {
+      $match: {
+        contestId: contestObjectId,
+        $or: [{ graded: true }, { isCorrect: { $in: [true, false] } }],
+      },
+    },
     {
       $group: {
         _id: "$userId",

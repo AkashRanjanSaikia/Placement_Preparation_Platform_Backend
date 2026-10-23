@@ -6,16 +6,20 @@ import {
   getRuntimeStatus,
   serverTimePayload,
 } from "../utility/contestStatus.js";
-import {
-  findContestQuestion,
-  sanitizeSnapshotForAttempt,
-} from "../services/contestSnapshotService.js";
-import {
-  gradeDsaAnswer,
-  gradeMcqAnswer,
-} from "../services/contestGradingService.js";
+import { sanitizeSnapshotForAttempt } from "../services/contestSnapshotService.js";
 import { buildLeaderboard } from "../services/leaderboardService.js";
+import {
+  assertCanEditAnswers,
+  finalizeUserExam,
+  getRegistrationRecord,
+  gradeAllPendingForContest,
+  saveContestAnswerDraft,
+} from "../services/contestExamService.js";
 import { verifyJoinCode } from "../services/joinCodeService.js";
+import { findContestQuestion } from "../services/contestSnapshotService.js";
+import { runCodeOnExampleCases } from "../services/codeRunService.js";
+import { consumeRateLimit } from "../utility/rateLimit.js";
+import { buildOrderedResultRows } from "../services/contestResultsService.js";
 
 function toObjectId(id) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -164,6 +168,23 @@ export const getContestById = async (req, res, next) => {
 
     const registered = await isUserRegistered(contest._id, req.user?.id);
     const participantCount = await getParticipantCount(contest._id);
+    const status = getRuntimeStatus(contest);
+
+    let rankExtras = {};
+    if (req.user?.id && registered && status === "completed") {
+      await gradeAllPendingForContest(contest._id);
+      const leaderboard = await buildLeaderboard(
+        contest._id,
+        contest.startTime,
+      );
+      const me = leaderboard.find((row) => row.userId === req.user.id);
+      if (me) {
+        rankExtras = {
+          myRank: me.rank,
+          myScore: me.totalScore,
+        };
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -172,6 +193,7 @@ export const getContestById = async (req, res, next) => {
         {
           participantCount,
           registered,
+          ...rankExtras,
         },
         req.user?.id,
       ),
@@ -213,6 +235,19 @@ export const registerForContest = async (req, res, next) => {
       const joinCode = req.body?.joinCode;
       const valid = await verifyJoinCode(joinCode, contest.joinCodeHash);
       if (!valid) {
+        const failKey = `join-fail:${req.user.id}:${contestId.toString()}`;
+        if (
+          !consumeRateLimit(failKey, {
+            windowMs: 15 * 60 * 1000,
+            max: 10,
+          })
+        ) {
+          return res.status(429).json({
+            success: false,
+            message:
+              "Too many incorrect join attempts. Try again in a few minutes.",
+          });
+        }
         return res.status(403).json({
           success: false,
           message: "Invalid join code for this private contest",
@@ -225,7 +260,7 @@ export const registerForContest = async (req, res, next) => {
       if (count >= contest.maxParticipants) {
         return res.status(409).json({
           success: false,
-          message: "Contest has reached maximum participants",
+          message: `Contest is full (${count}/${contest.maxParticipants} registered)`,
         });
       }
     }
@@ -277,8 +312,11 @@ export const getContestAttempt = async (req, res, next) => {
       });
     }
 
-    const registered = await isUserRegistered(contest._id, req.user.id);
-    if (!registered) {
+    const registration = await getRegistrationRecord(
+      contest._id,
+      req.user.id,
+    );
+    if (!registration) {
       return res.status(403).json({
         success: false,
         message: "Register for the contest before attempting",
@@ -304,6 +342,8 @@ export const getContestAttempt = async (req, res, next) => {
         title: contest.title,
         endTime: contest.endTime,
         status,
+        examFinalized: Boolean(registration.examFinalizedAt),
+        examFinalizedAt: registration.examFinalizedAt,
         sections,
       },
       ...serverTimePayload(),
@@ -313,7 +353,141 @@ export const getContestAttempt = async (req, res, next) => {
   }
 };
 
-export const submitContestAnswer = async (req, res, next) => {
+export const runContestDsaCode = async (req, res, next) => {
+  try {
+    const contest = await Contest.findById(req.params.id);
+    if (!contest || !contest.published) {
+      return res.status(404).json({
+        success: false,
+        message: "Contest not found",
+      });
+    }
+
+    const registration = await getRegistrationRecord(
+      contest._id,
+      req.user.id,
+    );
+    if (!registration) {
+      return res.status(403).json({
+        success: false,
+        message: "Register for the contest before running code",
+      });
+    }
+
+    try {
+      await assertCanEditAnswers(contest, registration);
+    } catch (err) {
+      return res.status(403).json({ success: false, message: err.message });
+    }
+
+    const questionKey = String(req.body?.questionKey ?? "").trim();
+    if (!questionKey) {
+      return res.status(400).json({
+        success: false,
+        message: "questionKey is required",
+      });
+    }
+
+    const match = findContestQuestion(contest, questionKey);
+    if (!match || match.section.type !== "DSA") {
+      return res.status(400).json({
+        success: false,
+        message: "Run is only available for DSA questions in this contest",
+      });
+    }
+
+    const snapshot = match.question.snapshot;
+    const slug = snapshot?.slug;
+    if (!slug) {
+      return res.status(400).json({
+        success: false,
+        message: "This question cannot be run (missing problem reference)",
+      });
+    }
+
+    const { code, languageId } = req.body;
+    try {
+      const result = await runCodeOnExampleCases({
+        slug,
+        code,
+        languageId,
+        exampleTestCases: snapshot.example_test_cases,
+        examples: snapshot.examples,
+      });
+      res.status(200).json({
+        success: true,
+        data: result,
+        ...serverTimePayload(),
+      });
+    } catch (err) {
+      const status = err.status ?? 500;
+      return res.status(status).json({
+        success: false,
+        message: err.message ?? "Run failed",
+      });
+    }
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const saveContestAnswer = async (req, res, next) => {
+  try {
+    const contest = await Contest.findById(req.params.id);
+    if (!contest || !contest.published) {
+      return res.status(404).json({
+        success: false,
+        message: "Contest not found",
+      });
+    }
+
+    const registration = await getRegistrationRecord(
+      contest._id,
+      req.user.id,
+    );
+    if (!registration) {
+      return res.status(403).json({
+        success: false,
+        message: "Register for the contest before saving answers",
+      });
+    }
+
+    try {
+      await assertCanEditAnswers(contest, registration);
+    } catch (err) {
+      return res.status(403).json({ success: false, message: err.message });
+    }
+
+    const questionKey = String(req.body?.questionKey ?? "").trim();
+    if (!questionKey) {
+      return res.status(400).json({
+        success: false,
+        message: "questionKey is required",
+      });
+    }
+
+    try {
+      await saveContestAnswerDraft({
+        contest,
+        userId: req.user.id,
+        questionKey,
+        body: req.body,
+      });
+    } catch (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { questionKey, saved: true },
+      ...serverTimePayload(),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const finalizeContestExam = async (req, res, next) => {
   try {
     const contest = await Contest.findById(req.params.id);
     if (!contest || !contest.published) {
@@ -327,97 +501,69 @@ export const submitContestAnswer = async (req, res, next) => {
     if (status !== "live") {
       return res.status(403).json({
         success: false,
-        message: "Submissions are only accepted while the contest is live",
+        message: "Final submission is only allowed while the contest is live",
       });
     }
 
-    const registered = await isUserRegistered(contest._id, req.user.id);
-    if (!registered) {
+    const registration = await getRegistrationRecord(
+      contest._id,
+      req.user.id,
+    );
+    if (!registration) {
       return res.status(403).json({
         success: false,
         message: "Register for the contest before submitting",
       });
     }
 
+    if (registration.examFinalizedAt) {
+      return res.status(409).json({
+        success: false,
+        message: "You have already submitted your answers",
+      });
+    }
+
     const questionKey = String(req.body?.questionKey ?? "").trim();
-    if (!questionKey) {
-      return res.status(400).json({
-        success: false,
-        message: "questionKey is required",
-      });
+    if (questionKey) {
+      const match = findContestQuestion(contest, questionKey);
+      const hasDraftPayload =
+        match &&
+        (match.section.type === "DSA"
+          ? Boolean(
+              req.body?.code &&
+                typeof req.body.code === "string" &&
+                req.body?.languageId,
+            )
+          : Number.isInteger(req.body?.selectedIndex) &&
+            req.body.selectedIndex >= 0);
+      if (hasDraftPayload) {
+        try {
+          const draftBody =
+            match.section.type === "DSA"
+              ? { ...req.body, submitDsaAnswer: true }
+              : req.body;
+          await saveContestAnswerDraft({
+            contest,
+            userId: req.user.id,
+            questionKey,
+            body: draftBody,
+          });
+        } catch (err) {
+          return res.status(400).json({ success: false, message: err.message });
+        }
+      }
     }
 
-    const match = findContestQuestion(contest, questionKey);
-    if (!match) {
-      return res.status(404).json({
-        success: false,
-        message: "Question not found in this contest",
-      });
-    }
-
-    const { section, question } = match;
-    const snapshot = question.snapshot;
-    let gradingResult;
-
-    if (section.type === "DSA") {
-      gradingResult = await gradeDsaAnswer(
-        snapshot,
-        req.body?.code,
-        Number(req.body?.languageId),
-      );
-    } else {
-      gradingResult = gradeMcqAnswer(snapshot, Number(req.body?.selectedIndex));
-    }
-
-    const marksAwarded = gradingResult.isCorrect
-      ? section.marksPerQuestion
-      : 0;
-
-    const submission = await ContestSubmission.findOneAndUpdate(
-      {
-        contestId: contest._id,
-        userId: req.user.id,
-        questionKey,
-      },
-      {
-        contestId: contest._id,
-        userId: req.user.id,
-        questionKey,
-        sectionKey: section.sectionKey,
-        sectionType: section.type,
-        selectedIndex:
-          section.type === "DSA" ? undefined : Number(req.body?.selectedIndex),
-        code: section.type === "DSA" ? req.body?.code : undefined,
-        languageId:
-          section.type === "DSA" ? Number(req.body?.languageId) : undefined,
-        isCorrect: gradingResult.isCorrect,
-        marksAwarded,
-        submittedAt: new Date(),
-      },
-      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
-    );
+    await finalizeUserExam(contest, req.user.id);
 
     res.status(200).json({
       success: true,
-      data: {
-        questionKey,
-        isCorrect: submission.isCorrect,
-        marksAwarded: submission.marksAwarded,
-        submittedAt: submission.submittedAt,
-        ...(section.type === "DSA" && gradingResult.verdicts
-          ? { verdicts: gradingResult.verdicts }
-          : {}),
-      },
+      message:
+        "Your answers are submitted. Results will be available after the contest ends.",
+      data: { examFinalized: true },
       ...serverTimePayload(),
     });
   } catch (err) {
-    if (
-      err.message?.includes("required") ||
-      err.message?.includes("Unsupported") ||
-      err.message?.includes("No harness")
-    ) {
-      return res.status(400).json({ success: false, message: err.message });
-    }
     next(err);
   }
 };
@@ -432,24 +578,40 @@ export const getMyContestSubmissions = async (req, res, next) => {
       });
     }
 
-    const registered = await isUserRegistered(contest._id, req.user.id);
-    if (!registered) {
+    const registration = await getRegistrationRecord(
+      contest._id,
+      req.user.id,
+    );
+    if (!registration) {
       return res.status(403).json({
         success: false,
         message: "Register for the contest to view submissions",
       });
     }
 
+    const runtimeStatus = getRuntimeStatus(contest);
+    const showResults = runtimeStatus === "completed";
+
+    if (showResults) {
+      await gradeAllPendingForContest(contest._id);
+    }
+
     const submissions = await ContestSubmission.find({
       contestId: contest._id,
       userId: req.user.id,
     }).select(
-      "questionKey sectionKey isCorrect marksAwarded submittedAt selectedIndex languageId",
+      "questionKey sectionKey sectionType isCorrect marksAwarded submittedAt selectedIndex code languageId graded lastSavedAt dsaAnswerSubmittedAt",
     );
+
+    const data = buildOrderedResultRows(contest, submissions, {
+      includeScores: showResults,
+    });
 
     res.status(200).json({
       success: true,
-      data: submissions,
+      data,
+      examFinalized: Boolean(registration.examFinalizedAt),
+      resultsVisible: showResults,
       ...serverTimePayload(),
     });
   } catch (err) {
@@ -475,11 +637,18 @@ export const getContestLeaderboard = async (req, res, next) => {
       });
     }
 
+    await gradeAllPendingForContest(contest._id);
     const leaderboard = await buildLeaderboard(contest._id, contest.startTime);
+    const sectionColumns = (contest.sections ?? []).map((section) => ({
+      sectionKey: section.sectionKey,
+      name: section.name,
+      type: section.type,
+    }));
 
     res.status(200).json({
       success: true,
       data: leaderboard,
+      sectionColumns,
       ...serverTimePayload(),
     });
   } catch (err) {

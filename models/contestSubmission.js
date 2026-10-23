@@ -26,9 +26,13 @@ const ContestSubmissionSchema = new Schema(
     selectedIndex: { type: Number },
     code: { type: String },
     languageId: { type: Number },
-    isCorrect: { type: Boolean, required: true },
-    marksAwarded: { type: Number, required: true, default: 0 },
-    submittedAt: { type: Date, default: Date.now },
+    graded: { type: Boolean, default: false, index: true },
+    isCorrect: { type: Boolean, default: null },
+    marksAwarded: { type: Number, default: 0 },
+    lastSavedAt: { type: Date, default: Date.now },
+    /** DSA only: set when the user explicitly saves/submits that answer for grading. */
+    dsaAnswerSubmittedAt: { type: Date },
+    submittedAt: { type: Date },
   },
   { timestamps: true },
 );

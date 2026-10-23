@@ -1,6 +1,12 @@
 import Contest from "../models/contest.js";
+import ContestRegistration from "../models/contestRegistration.js";
 import Problem from "../models/problem.js";
 import Question from "../models/question.js";
+import {
+  buildEditableSections,
+  countQuestionsInSections,
+} from "../services/hostContestMapper.js";
+import { isContestDraftEditable } from "../utility/contestStatus.js";
 import {
   assertContestOwner,
   createContestDraft,
@@ -162,6 +168,15 @@ export const hostListMyContests = async (req, res, next) => {
     const contests = await Contest.find({ createdBy: req.user.id }).sort({
       updatedAt: -1,
     });
+    const contestIds = contests.map((c) => c._id);
+    const registrationCounts = await ContestRegistration.aggregate([
+      { $match: { contestId: { $in: contestIds } } },
+      { $group: { _id: "$contestId", count: { $sum: 1 } } },
+    ]);
+    const countByContest = new Map(
+      registrationCounts.map((row) => [row._id.toString(), row.count]),
+    );
+
     res.status(200).json({
       success: true,
       data: contests.map((contest) => ({
@@ -172,8 +187,93 @@ export const hostListMyContests = async (req, res, next) => {
         status: getRuntimeStatus(contest),
         startTime: contest.startTime,
         endTime: contest.endTime,
+        updatedAt: contest.updatedAt,
+        sectionCount: contest.sections?.length ?? 0,
+        questionCount: countQuestionsInSections(contest.sections),
+        participantCount: countByContest.get(contest._id.toString()) ?? 0,
       })),
       ...serverTimePayload(),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const hostGetContest = async (req, res, next) => {
+  try {
+    const contest = await Contest.findById(req.params.id);
+    if (!contest) {
+      return res.status(404).json({
+        success: false,
+        message: "Contest not found",
+      });
+    }
+    if (!assertContestOwner(contest, req.user.id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only manage contests you created",
+      });
+    }
+
+    const participantCount = await ContestRegistration.countDocuments({
+      contestId: contest._id,
+    });
+    const editableSections = await buildEditableSections(contest.sections);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: contest._id.toString(),
+        title: contest.title,
+        description: contest.description,
+        rules: contest.rules,
+        visibility: contest.visibility ?? "public",
+        published: contest.published,
+        publishedAt: contest.publishedAt,
+        status: getRuntimeStatus(contest),
+        startTime: contest.startTime,
+        endTime: contest.endTime,
+        maxParticipants: contest.maxParticipants,
+        participantCount,
+        sectionCount: contest.sections?.length ?? 0,
+        questionCount: countQuestionsInSections(contest.sections),
+        canEdit: isContestDraftEditable(contest),
+        editableSections,
+      },
+      ...serverTimePayload(),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const hostDeleteDraft = async (req, res, next) => {
+  try {
+    const contest = await Contest.findById(req.params.id);
+    if (!contest) {
+      return res.status(404).json({
+        success: false,
+        message: "Contest not found",
+      });
+    }
+    if (!assertContestOwner(contest, req.user.id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete contests you created",
+      });
+    }
+    if (!isContestDraftEditable(contest)) {
+      return res.status(400).json({
+        success: false,
+        message: "Only unpublished drafts can be deleted",
+      });
+    }
+
+    await Contest.deleteOne({ _id: contest._id });
+
+    res.status(200).json({
+      success: true,
+      message: "Draft deleted",
     });
   } catch (err) {
     next(err);
