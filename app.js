@@ -7,6 +7,8 @@ import problemRouter from './routes/problem.js';
 import submissionRouter from './routes/submission.js';
 import questionRouter from './routes/question.js';
 import authRouter from './routes/auth.js';
+import contestRouter from './routes/contest.js';
+import adminContestRouter from './routes/adminContest.js';
 
 const PORT = process.env.PORT || 5000;
 const app = express();
@@ -18,6 +20,8 @@ app.use("/problem", problemRouter);
 app.use("/submission",submissionRouter);
 app.use("/question", questionRouter);
 app.use("/auth", authRouter);
+app.use("/contest", contestRouter);
+app.use("/admin/contest", adminContestRouter);
 
 //  path not present
 app.use((req, res) => {
