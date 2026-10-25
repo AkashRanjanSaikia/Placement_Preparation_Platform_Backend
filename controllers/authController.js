@@ -2,8 +2,9 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 
-const BCRYPT_ROUNDS = 10;
+const BCRYPT_ROUNDS = 12;
 const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function normalizeEmail(email) {
@@ -77,6 +78,13 @@ export const register = async (req, res) => {
       });
     }
 
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: `Password must be at most ${MAX_PASSWORD_LENGTH} characters`,
+      });
+    }
+
     const existing = await User.findOne({ email }).select("_id");
     if (existing) {
       return res.status(409).json({
@@ -143,6 +151,13 @@ export const login = async (req, res) => {
       });
     }
 
+    if (typeof password === "string" && password.length > MAX_PASSWORD_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: `Password must be at most ${MAX_PASSWORD_LENGTH} characters`,
+      });
+    }
+
     const user = await User.findOne({ email }).select("+password");
     if (!user) {
       return res.status(401).json({
@@ -179,6 +194,25 @@ export const login = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Login failed. Please try again.",
+    });
+  }
+};
+
+export const getMe = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email,
+      },
+    });
+  } catch (err) {
+    console.error("Get me error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Could not load profile",
     });
   }
 };

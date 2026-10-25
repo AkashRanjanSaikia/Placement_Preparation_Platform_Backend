@@ -1,0 +1,37 @@
+import mongoose from "mongoose";
+
+const { Schema } = mongoose;
+
+const ContestRegistrationSchema = new Schema(
+  {
+    contestId: {
+      type: Schema.Types.ObjectId,
+      ref: "Contest",
+      required: true,
+      index: true,
+    },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    registeredAt: {
+      type: Date,
+      default: Date.now,
+    },
+    examFinalizedAt: { type: Date, default: null },
+    roomEnteredAt: { type: Date, default: null },
+    roomLockedAt: { type: Date, default: null },
+  },
+  { timestamps: true },
+);
+
+ContestRegistrationSchema.index({ contestId: 1, userId: 1 }, { unique: true });
+
+const ContestRegistration = mongoose.model(
+  "ContestRegistration",
+  ContestRegistrationSchema,
+);
+
+export default ContestRegistration;

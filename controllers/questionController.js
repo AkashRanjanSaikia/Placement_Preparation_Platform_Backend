@@ -23,7 +23,7 @@ export const getQuestionCatalog = async (req, res) => {
       });
     }
 
-    const [grouped, byDifficulty] = await Promise.all([
+    const [grouped, byDifficulty, questionRows] = await Promise.all([
       Question.aggregate([
         { $match: { category } },
         {
@@ -42,6 +42,9 @@ export const getQuestionCatalog = async (req, res) => {
           },
         },
       ]),
+      Question.find({ category })
+        .select("topic questionText difficulty")
+        .lean(),
     ]);
 
     const topicCounts = {};
@@ -75,12 +78,26 @@ export const getQuestionCatalog = async (req, res) => {
       }
     }
 
+    const questionsByTopic = {};
+    for (const row of questionRows) {
+      const topic = row.topic;
+      if (!topic) continue;
+      if (!questionsByTopic[topic]) {
+        questionsByTopic[topic] = [];
+      }
+      questionsByTopic[topic].push({
+        questionText: row.questionText,
+        difficulty: row.difficulty,
+      });
+    }
+
     res.status(200).json({
       success: true,
       category,
       topicCounts,
       topicDifficultyCounts,
       subjects,
+      questionsByTopic,
     });
   } catch (err) {
     console.error("Error fetching question catalog:", err);

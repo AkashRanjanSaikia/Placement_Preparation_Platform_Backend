@@ -7,6 +7,7 @@ import {
   languageIdToName,
   exampleTestCasesToJudgeCases,
 } from '../utility/submission.js';
+import { runCodeOnExampleCases } from '../services/codeRunService.js';
 
 async function gradeCodeAgainstTestCases(
   req,
@@ -94,25 +95,13 @@ async function gradeCodeAgainstTestCases(
 
 export const runCode = async (req, res) => {
   try {
-    const { slug } = req.body;
-    const problem = slug ? await Problem.findOne({ slug }) : null;
-    const testCases = problem?.example_test_cases
-      ? exampleTestCasesToJudgeCases(
-          problem.example_test_cases,
-          problem.examples,
-        )
-      : [];
-
-    await gradeCodeAgainstTestCases(
-      req,
-      res,
-      testCases,
-      'Problem has no example test cases',
-      'run',
-    );
+    const { slug, code, languageId } = req.body;
+    const result = await runCodeOnExampleCases({ slug, code, languageId });
+    res.json(result);
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: err.message });
+    const status = err.status ?? 500;
+    res.status(status).json({ error: err.message });
   }
 };
 

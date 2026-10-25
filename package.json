@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "node scripts/contestSmokeTest.mjs",
+    "test:contest": "node scripts/contestSmokeTest.mjs",
     "seed:cs-fundamentals": "node scripts/seedCsFundamentals.js"
   },
   "keywords": [],
