@@ -8,7 +8,8 @@
     "dev": "nodemon app.js",
     "test": "node scripts/contestSmokeTest.mjs",
     "test:contest": "node scripts/contestSmokeTest.mjs",
-    "seed:cs-fundamentals": "node scripts/seedCsFundamentals.js"
+    "seed:cs-fundamentals": "node scripts/seedCsFundamentals.js",
+    "seed:dsa-sample": "node scripts/seedDsaSampleProblems.js"
   },
   "keywords": [],
   "author": "",

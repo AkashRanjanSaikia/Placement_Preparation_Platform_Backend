@@ -1,16 +1,25 @@
 import Problem from '../models/problem.js';
+import { getAcceptanceRatesBySlug } from '../services/dsaSubmissionService.js';
 
 export const getProblems = async (req, res) => {
   try {
-    const problems = await Problem.find(
-      {},
-      'slug title difficulty' // projection: only send what the list view needs
-    ).sort({ createdAt: 1 });
+    const [problems, acceptanceBySlug] = await Promise.all([
+      Problem.find(
+        {},
+        'slug title difficulty',
+      ).sort({ createdAt: 1 }),
+      getAcceptanceRatesBySlug(),
+    ]);
+
+    const data = problems.map((problem) => ({
+      ...problem.toObject(),
+      acceptance: acceptanceBySlug[problem.slug] ?? '—',
+    }));
 
     res.status(200).json({
       success: true,
-      count: problems.length,
-      data: problems
+      count: data.length,
+      data,
     });
   } catch (err) {
     console.error('Error fetching problems:', err);

@@ -1,0 +1,156 @@
+[
+  {
+    "slug": "maximum-subarray",
+    "title": "Maximum Subarray Sum",
+    "difficulty": "Medium",
+    "description": "Given an array of integers nums, find the contiguous subarray with the largest sum and return that sum.\n\nA subarray is a contiguous non-empty sequence of elements within the array.",
+    "constraints": [
+      "1 <= nums.length <= 10^5",
+      "-10^4 <= nums[i] <= 10^4"
+    ],
+    "examples": [
+      {
+        "input": "nums = [-2,1,-3,4,-1,2,1,-5,4]",
+        "output": "6",
+        "explanation": "The subarray [4,-1,2,1] has the largest sum 6."
+      },
+      {
+        "input": "nums = [1]",
+        "output": "1",
+        "explanation": "The only subarray is [1]."
+      }
+    ],
+    "example_test_cases": [
+      { "input": "-2,1,-3,4,-1,2,1,-5,4", "output": "6" },
+      { "input": "1", "output": "1" }
+    ],
+    "test_cases": [
+      { "args": "1,2,3", "expected": "6", "hidden": false },
+      { "args": "-1", "expected": "-1", "hidden": false },
+      { "args": "-2,1,-3,4,-1,2,1,-5,4", "expected": "6", "hidden": true },
+      { "args": "5,4,-1,7,8", "expected": "15", "hidden": true },
+      { "args": "-5,-2,-3,-1", "expected": "-1", "hidden": true }
+    ],
+    "starter_code": [
+      {
+        "language": "python",
+        "code": "def max_subarray(nums):\n    pass"
+      },
+      {
+        "language": "javascript",
+        "code": "function maxSubarray(nums) {\n\n}"
+      },
+      {
+        "language": "java",
+        "code": "class Solution {\n    public int maxSubarray(int[] nums) {\n        \n    }\n}"
+      },
+      {
+        "language": "cpp",
+        "code": "class Solution {\npublic:\n    int maxSubarray(vector<int>& nums) {\n        \n    }\n};"
+      }
+    ]
+  },
+  {
+    "slug": "longest-substring-without-repeating",
+    "title": "Longest Substring Without Repeating Characters",
+    "difficulty": "Medium",
+    "description": "Given a string s, find the length of the longest substring without repeating characters.\n\nA substring is a contiguous sequence of characters within a string.",
+    "constraints": [
+      "0 <= s.length <= 5 * 10^4",
+      "s consists of English letters, digits, symbols, and spaces."
+    ],
+    "examples": [
+      {
+        "input": "s = \"abcabcbb\"",
+        "output": "3",
+        "explanation": "The answer is \"abc\", with length 3."
+      },
+      {
+        "input": "s = \"bbbbb\"",
+        "output": "1",
+        "explanation": "The answer is \"b\", with length 1."
+      }
+    ],
+    "example_test_cases": [
+      { "input": "abcabcbb", "output": "3" },
+      { "input": "bbbbb", "output": "1" }
+    ],
+    "test_cases": [
+      { "args": "pwwkew", "expected": "3", "hidden": false },
+      { "args": "au", "expected": "2", "hidden": false },
+      { "args": "dvdf", "expected": "3", "hidden": true },
+      { "args": "abba", "expected": "2", "hidden": true },
+      { "args": "nfpdmpi", "expected": "5", "hidden": true }
+    ],
+    "starter_code": [
+      {
+        "language": "python",
+        "code": "def length_of_longest_substring(s):\n    pass"
+      },
+      {
+        "language": "javascript",
+        "code": "function lengthOfLongestSubstring(s) {\n\n}"
+      },
+      {
+        "language": "java",
+        "code": "class Solution {\n    public int lengthOfLongestSubstring(String s) {\n        \n    }\n}"
+      },
+      {
+        "language": "cpp",
+        "code": "class Solution {\npublic:\n    int lengthOfLongestSubstring(string s) {\n        \n    }\n};"
+      }
+    ]
+  },
+  {
+    "slug": "coin-change",
+    "title": "Coin Change",
+    "difficulty": "Medium",
+    "description": "You are given an integer array coins representing coin denominations and an integer amount representing a total amount of money.\n\nReturn the fewest number of coins needed to make up that amount. If the amount cannot be made up, return -1.\n\nYou may assume each coin denomination can be used an unlimited number of times.",
+    "constraints": [
+      "1 <= coins.length <= 12",
+      "1 <= coins[i] <= 2^31 - 1",
+      "0 <= amount <= 10^4"
+    ],
+    "examples": [
+      {
+        "input": "amount = 11, coins = [1,2,5]",
+        "output": "3",
+        "explanation": "11 = 5 + 5 + 1."
+      },
+      {
+        "input": "amount = 3, coins = [2]",
+        "output": "-1",
+        "explanation": "The amount 3 cannot be formed with coin 2."
+      }
+    ],
+    "example_test_cases": [
+      { "input": "11\n1,2,5", "output": "3" },
+      { "input": "3\n2", "output": "-1" }
+    ],
+    "test_cases": [
+      { "args": "0\n1", "expected": "0", "hidden": false },
+      { "args": "7\n2,7", "expected": "1", "hidden": false },
+      { "args": "100\n1,2,5", "expected": "20", "hidden": true },
+      { "args": "18\n1,2,5,10", "expected": "4", "hidden": true },
+      { "args": "4\n3,5", "expected": "-1", "hidden": true }
+    ],
+    "starter_code": [
+      {
+        "language": "python",
+        "code": "def coin_change(amount, coins):\n    pass"
+      },
+      {
+        "language": "javascript",
+        "code": "function coinChange(amount, coins) {\n\n}"
+      },
+      {
+        "language": "java",
+        "code": "class Solution {\n    public int coinChange(int amount, int[] coins) {\n        \n    }\n}"
+      },
+      {
+        "language": "cpp",
+        "code": "class Solution {\npublic:\n    int coinChange(int amount, vector<int>& coins) {\n        \n    }\n};"
+      }
+    ]
+  }
+]
